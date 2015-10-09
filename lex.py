@@ -10,7 +10,6 @@ import utils
 
 
 
-
 _INITIAL = "INITIAL_STATE"
 _LEXER_CLASS_ID = "LEXER_CLASS_ID"
 _STATES_ATTR = "_states"
@@ -33,10 +32,13 @@ ErrorType  = 2
 
 class Lexer(object):
 
+    INITIAL = "INITIAL_STATE"
+
     def __init__(self, module=None):
         self._text = None
         self._cursorPos = self._lineno = self._numTokens = self._numTokensLeft = 0
-        self._currentStateName = _INITIAL
+        self._currentStateName = Lexer.INITIAL
+        self._statesStack = [self._currentStateName]
         self._warnings = []
         self._errors = []
         self._states = _LexerInfo(module).getStates()
@@ -47,7 +49,7 @@ class Lexer(object):
     @staticmethod
     def LexerApi(states=None):
         if states is None: states = []
-        states = states + [_INITIAL]
+        states = states + [Lexer.INITIAL]
 
         def classDecorator(cls):
             setattr(cls, _LEXER_CLASS_ID, True)
@@ -115,6 +117,28 @@ class Lexer(object):
 
 
 
+    def beginState(self, stateName):
+        self._currentStateName = stateName
+        self._currentState = self._getCurrentLexState()
+
+
+
+    def pushState(self, stateName):
+        if stateName != self._statesStack[-1]:
+            self._statesStack.append(stateName)
+            self._currentStateName = stateName
+            self._currentState = self._getCurrentLexState()
+
+
+
+    def popState(self):
+        if len(self._statesStack) > 1:
+            self._statesStack.pop()
+            self._currentStateName = self._statesStack[-1]
+            self._currentState = self._getCurrentLexState()
+
+
+
     def token(self):
         while not self._inputConsumed():
             lexState = self._currentState
@@ -128,12 +152,13 @@ class Lexer(object):
             lexToken, numCharsMatched = lexState.applyTokenRules(self._text,
                                                                  self._cursorPos,
                                                                  lexToken)
+
             if numCharsMatched > 0:
                 self._cursorPos += numCharsMatched
                 if lexToken is not None:
                     lexToken.setLineno(self._lineno)
                     yield lexToken
-                    continue
+                continue
 
             oldCursor = self._cursorPos
             lexError = self._createDefaultLexError()
