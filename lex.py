@@ -17,7 +17,7 @@ _STATES_ATTR = "_states"
 LEXER_METHOD = "LEXER_METHOD"
 
 TokenMethod  = namedtuple("TokenMethod", ["name", "state", "order", "pattern", "type"])
-IgnoreMethod = namedtuple("IgnoreMethod", ["name", "state", "pattern", "type"])
+IgnoreMethod = namedtuple("IgnoreMethod", ["name", "state", "pattern", "oneof", "type"])
 ErrorMethod  = namedtuple("ErrorMethod", ["state", "type"])
 
 TokenType  = 0
@@ -76,12 +76,14 @@ class Lexer(object):
 
 
     @staticmethod
-    def Ignore(name=None, state=_INITIAL, pattern=None):
+    def Ignore(name=None, state=_INITIAL, pattern=None, oneof=""):
 
         def ignoreDecorator(f):
+            pat = re.compile(pattern) if pattern is not None else None
             setattr(f, LEXER_METHOD, IgnoreMethod(name=name,
                                                   state=state,
-                                                  pattern=re.compile(pattern),
+                                                  pattern=pat,
+                                                  oneof=oneof,
                                                   type=IgnoreType))
             
             return f
@@ -331,11 +333,17 @@ class _LexState(object):
 
     def applyIgnoreRules(self, text, startPos):
         for ignoreRule in self._ignoreRules:
-            patternToMatch = getattr(ignoreRule, LEXER_METHOD).pattern
-            match = patternToMatch.match(text, startPos)
-            if match is not None:
-                ignoreRule(match.group(0))
-                return match.end() - match.start()
+            ignoreRuleInfo = getattr(ignoreRule, LEXER_METHOD)
+            patternToMatch = ignoreRuleInfo.pattern
+            if patternToMatch is not None:
+                match = patternToMatch.match(text, startPos)
+                if match is not None:
+                    ignoreRule(match.group(0))
+                    return match.end() - match.start()
+            oneofPattern = ignoreRuleInfo.oneof
+            if text[startPos] in oneofPattern:
+                ignoreRule(text[startPos])
+                return 1
         return 0
 
     def applyTokenRules(self, text, startPos, lexToken):
