@@ -202,6 +202,15 @@ class Lexer(object):
 
 
 
+    def setLineno(self, lineno):
+        self._lineno = lineno
+
+
+    def getLineno(self):
+        return self._lineno
+
+
+
 
 class LexItem(object):
 
