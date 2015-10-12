@@ -141,7 +141,7 @@ class Lexer(object):
 
 
 
-    def token(self):
+    def _getNextToken(self):
         while not self._inputConsumed():
             lexState = self._currentState
 
@@ -168,6 +168,14 @@ class Lexer(object):
             if oldCursor >= self._cursorPos:
                 # raise error (infine loop)
                 return
+
+
+    def token(self):
+        generator = self._getNextToken()
+        try:
+            return next(generator)
+        except StopIteration:
+            return None
 
 
 
