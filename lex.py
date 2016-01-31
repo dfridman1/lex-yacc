@@ -133,22 +133,42 @@ class Lexer(object):
 
 
     def get_token(self):
-        "Return a token generator."
+        "Return token generator"
         while not self._finished_analysis():
-            if not self._ignored():
-                token, match_obj = self._apply_token_rules()
-                if match_obj is not None:
-                    text_matched = match_obj.group(0)
-                    self.lexpos += len(text_matched)
-                    self.lexcol += len(text_matched)
-                    if token is not None:
-                        self.num_tokens += 1
-                        yield token
-                else:
-                    # no rule matched
-                    error_token = self._apply_error_rule()
-                    if error_token is not None:
-                        yield error_token
+            token = self._generate_token()
+            if token is not None:
+                yield token
+
+
+    def _generate_token(self):
+        if self._ignored():
+            return
+
+        token, match_obj = self._apply_token_rules()
+        if match_obj is not None:
+            self._process_text(match_obj.group(0))
+            if token is not None:
+                self.num_tokens += 1
+            return token
+
+        error_token = self._apply_error_rule()
+        return error_token
+
+
+    def _process_text(self, text):
+        self.lexpos += len(text)
+        for char in text:
+            self._process_char(char)
+
+
+    def _process_char(self, char):
+        if char == '\n':
+            self.lineno += 1
+            self.lexcol = 1
+        elif char == '\t':
+            self.lexcol = self.lexcol + 8 - ((self.lexcol - 1) % 8)
+        else:
+            self.lexcol += 1
 
 
     def token(self):
@@ -186,7 +206,7 @@ class Lexer(object):
                                                                                          rule.__name__))
                 return token, m
         return None, None
-            
+
 
     def _ignored(self):
         ch = self.lexdata[self.lexpos]
@@ -199,13 +219,9 @@ class Lexer(object):
 
     def skip(self, n=1):
         '''Skip n characters of the input.'''
-        self.lexpos += n
-        self.lexcol += n
-
-
-    def incLine(self, n):
-        self.lineno += n
-        self.lexcol = 1
+        if n > 0:
+            skipped_text = self.lexdata[self.lexpos: self.lexpos + n]
+            self._process_text(skipped_text)
 
 
     def _get_current_token_rules(self):
