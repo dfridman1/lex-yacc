@@ -11,7 +11,8 @@ from utils import (get_global_vars,
                    filter_variables,
                    categorize,
                    split,
-                   memo)
+                   memo,
+                   partition)
 
 
 
@@ -27,7 +28,7 @@ def is_epsilon_transition(tok_name):
 
 
 class Yacc(object):
-    def __init__(self, parser="EARLEY", module=None):
+    def __init__(self, parser="RD", module=None):
         self.parser = self._get_parser(parser)(module)
 
     def _get_parser(self, parser_name):
@@ -99,13 +100,16 @@ class RecursiveDescentParser(Grammar):
         self.nonterminals = set(self.grammar.keys())
 
         
-    def parse(self, text, lexer, tokenfunc=None):
+    def parse(self, text, lexer, tokenfunc=None, skip_lexerrors=False):
         self.tokenfunc = tokenfunc or (lambda token: token.value)
         lexer.input(text)
-        self.tokens = filter(lambda token: not token.is_error, lexer.get_token())
+        
+        self.tokens, lexerrors = partition(lambda token: not token.is_error,
+                                           list(lexer.get_token()))
+        if lexerrors != [] and not skip_lexerrors:
+            raise ValueError(str(lexerrors[0]))
+            
         tree, i = self.parse_atom(self.start_symbol, 0)
-        # if i == len(self.tokens):  # all tokens consumed
-        #     return tree
         return tree
 
         
@@ -116,11 +120,9 @@ class RecursiveDescentParser(Grammar):
             errors = []
             for production in alternatives:
                 tree, i = self.parse_sequence(production, token_num)
-                # if tree is not None:
                 if not isinstance(tree, ParseError):
                     return tree, i
                 errors.append(tree)
-            # return FAIL
             return ParseError.mergeParseErrorsMany(*errors), None
         else:
             if is_epsilon_transition(atom):
@@ -128,7 +130,6 @@ class RecursiveDescentParser(Grammar):
             elif self.token_matched(atom, token_num):
                 return self.tokenfunc(self.tokens[token_num]), token_num + 1
             else:
-                # return FAIL
                 return ParseError(self.tokens[token_num]), None
 
 
@@ -136,8 +137,6 @@ class RecursiveDescentParser(Grammar):
         result = [None]
         for atom in production.body:
             tree, token_num = self.parse_atom(atom, token_num)
-            # if tree is None:
-            #     return FAIL
             if isinstance(tree, ParseError):
                 return tree, None
             result.append(tree)
