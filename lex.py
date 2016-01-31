@@ -25,7 +25,7 @@ class LexToken(object):
         return "LexToken(%s, %r, %d, %d)" % (self.type,
                                              self.value,
                                              self.lineno,
-                                             self.lexpos)
+                                             self.pos)
 
 
 class LexError(object):
@@ -37,7 +37,7 @@ class LexError(object):
         return "LexError(%r, %r, %d, %d)" % (self.error_msg,
                                              self.value,
                                              self.lineno,
-                                             self.lexpos)
+                                             self.pos)
 
 
 
@@ -84,6 +84,7 @@ class Lexer(object):
         self.current_token_rules = self._get_current_token_rules()
 
         self.lexpos = 0
+        self.lexcol = 1
         self.lineno = 1
         self.lexdata = ""
 
@@ -139,6 +140,7 @@ class Lexer(object):
                 if match_obj is not None:
                     text_matched = match_obj.group(0)
                     self.lexpos += len(text_matched)
+                    self.lexcol += len(text_matched)
                     if token is not None:
                         self.num_tokens += 1
                         yield token
@@ -198,6 +200,12 @@ class Lexer(object):
     def skip(self, n=1):
         '''Skip n characters of the input.'''
         self.lexpos += n
+        self.lexcol += n
+
+
+    def incLine(self, n):
+        self.lineno += n
+        self.lexcol = 1
 
 
     def _get_current_token_rules(self):
@@ -228,14 +236,14 @@ class Lexer(object):
     def _make_default_token(self, type=None, value=None):
         token = LexToken()
         token.lexer, token.value, token.type = self, value, type
-        token.lineno, token.lexpos = self.lineno, self.lexpos
+        token.lineno, token.pos = self.lineno, self.lexcol
         return token
 
     def _make_default_error_token(self, error_msg=""):
         token = LexError()
         token.lexer = self
         token.error_msg = error_msg
-        token.lineno, token.lexpos = self.lineno, self.lexpos
+        token.lineno, token.pos = self.lineno, self.lexcol
         token.value = self.lexdata[self.lexpos:]
         return token
 

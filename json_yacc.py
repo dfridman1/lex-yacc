@@ -61,7 +61,7 @@ def p_elements(p):
 
 
 if __name__ == "__main__":
-    parser = yacc.yacc()
+    parser = yacc.yacc(parser='RD')
     tree = parser.parse(sys.stdin.read(), lexer)
     if tree is not None:
         print tree

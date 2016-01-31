@@ -62,6 +62,33 @@ class Grammar(object):
 
 
 
+class ParseError(object):
+    def __init__(self, onToken):
+        self._onTokens = set([onToken.type])
+        self._pos = (onToken.lineno, onToken.pos)
+
+    def errorPos(self):
+        return self._pos
+
+    @staticmethod
+    def mergeParseErrors(e1, e2):
+        p1, p2 = e1.errorPos(), e2.errorPos()
+        if p1 > p2:
+            return e1
+        elif p2 > p1:
+            return e2
+        else:
+            e1._onTokens = e1._onTokens | e2._onTokens
+            return e1
+
+    @staticmethod
+    def mergeParseErrorsMany(*errors):
+        return reduce(ParseError.mergeParseErrors, errors)
+
+    def __str__(self):
+        return str(self._onTokens) + str(self._pos)
+
+
 
 FAIL = (None, None)
             
@@ -77,34 +104,42 @@ class RecursiveDescentParser(Grammar):
         lexer.input(text)
         self.tokens = filter(lambda token: not token.is_error, lexer.get_token())
         tree, i = self.parse_atom(self.start_symbol, 0)
-        if i == len(self.tokens):  # all tokens consumed
-            return tree
+        # if i == len(self.tokens):  # all tokens consumed
+        #     return tree
+        return tree
 
         
     @memo
     def parse_atom(self, atom, token_num):
         alternatives = self.grammar.get(atom)
         if alternatives is not None:  # if atom is a nonterminal
+            errors = []
             for production in alternatives:
                 tree, i = self.parse_sequence(production, token_num)
-                if tree is not None:
+                # if tree is not None:
+                if not isinstance(tree, ParseError):
                     return tree, i
-            return FAIL
+                errors.append(tree)
+            # return FAIL
+            return ParseError.mergeParseErrorsMany(*errors), None
         else:
             if is_epsilon_transition(atom):
                 return [], token_num
             elif self.token_matched(atom, token_num):
                 return self.tokenfunc(self.tokens[token_num]), token_num + 1
             else:
-                return FAIL
+                # return FAIL
+                return ParseError(self.tokens[token_num]), None
 
 
     def parse_sequence(self, production, token_num):
         result = [None]
         for atom in production.body:
             tree, token_num = self.parse_atom(atom, token_num)
-            if tree is None:
-                return FAIL
+            # if tree is None:
+            #     return FAIL
+            if isinstance(tree, ParseError):
+                return tree, None
             result.append(tree)
         production.yield_rule(result)
         return result[0], token_num

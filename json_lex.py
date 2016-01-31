@@ -31,7 +31,7 @@ t_rbracket = r'\]'
 
 def t_newline(t):
     r'\n'
-    t.lexer.lineno += 1
+    t.lexer.incLine(1)
 
 
 
