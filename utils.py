@@ -99,3 +99,11 @@ def for_all(predicate, L):
 def for_any(predicate, L):
     '''Return True if predicate is True for any element in L.'''
     return any(map(predicate, L))
+
+
+def partition(pred, xs):
+    'Partitions xs according to pred.'
+    t, f = [], []
+    for x in xs:
+        (t if pred(x) else f).append(x)
+    return t, f
